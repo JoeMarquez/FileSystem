@@ -63,8 +63,6 @@ uint8_t is_saved;
 
 
 /*************************************** FILE COMMAND FUNCTIONS ********************************************/
-void encrypt(char *filename, char *cipher);
-void decrypt(char *filename, unsigned char cipher);
 
 // Helper function that returns the index of a free block on success and -1 on failure
 int32_t findFreeBlock()
@@ -300,165 +298,6 @@ void read_file(char *filename, int starting_byte, int number_of_bytes)
         block_offset = 0;
     }
     printf("\n");
-}
-
-
-/*takes a filename and a cipher as input and encrypts the contents of the file by performing a bitwise 
-  XOR operation between each byte of the file and the cipher.The encrypt command allows the user to 
-  encrypt a file in the file system using the provided cipher.The cipher is required to be 256 bits, XOR encrypt the file using the given cipher. The cipher is limited to a 1-byte value.
-*/
-void encrypt(char *filename, char *cipher)
-{
-    //checks if the global image_open flag is 0, indicating that the disk image is not currently open. 
-    //if so, it prints an error message and returns without performing any encryption.
-    if (image_open == 0)
-    {
-        printf("ERROR: Disk image is not open\n");
-        return;
-    }
-
-    //searches for the filename in the directory array by iterating over all the entries in the array. 
-    //if the filename is found and its corresponding directory entry is marked as in_use, it sets the found flag to 1 and exits the loop. 
-    //if the filename is not found, it prints an error message and returns without performing any encryption.
-    int found = 0;
-    int i;
-    for (i = 0; i < NUM_FILES; i++)
-    {
-        if (directory[i].in_use && strcmp(directory[i].filename, filename) == 0)
-        {
-            found = 1;
-            break;
-        }
-    }
-
-    if (!found)
-    {
-        printf("ERROR: File not found\n");
-        return;
-    }
-
-    //gets a pointer to the inode corresponding to the filename found in the previous step and prints the file size.
-    struct inode *inode_ptr = &inodes[directory[i].inode];
-
-    //prints the value of inode_ptr->file_size
-    printf("File size: %d\n", inode_ptr->file_size);
-
-    //calculates the number of blocks needed to store the file's contents by dividing the file size by the block size and rounding up. It then checks if the file is empty (i.e., its size is 0). 
-    //if so, it prints a message and returns without performing any encryption.
-    int count_block = (inode_ptr->file_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
-
-    // Check if the file is empty
-    if (count_block == 0) 
-    {
-        printf("File %s is empty\n", filename);
-        return;
-    }
-
-    //converts the cipher from a string to an unsigned char value and initializes 
-    //the contents of the file's blocks to 0 before encryption.
-    //converts the cipher to a 1-byte value
-    unsigned char cipher_byte = (unsigned char)strtoul(cipher, NULL, 0);
-
-    //initializes the contents of the file's blocks to 0 before encryption
-    for (int block_index = 0; block_index < count_block; block_index++)
-    {
-        for (int byte_index = 0; byte_index < BLOCK_SIZE; byte_index++)
-        {
-            data[inode_ptr->blocks[block_index]][byte_index] = 0;
-        }
-    }
-
-    // Print content of the file before encryption
-    printf("Content before encryption:\n");
-    for (int block_index = 0; block_index < count_block; block_index++)
-    {
-        for (int byte_index = 0; byte_index < BLOCK_SIZE; byte_index++)
-        {
-            printf("%c", data[inode_ptr->blocks[block_index]][byte_index]);
-        }
-    }
-    printf("\n");
-
-    // Encrypts the file
-    for (int block_index = 0; block_index < count_block; block_index++)
-    {
-        for (int byte_index = 0; byte_index < BLOCK_SIZE; byte_index++)
-        {
-            data[inode_ptr->blocks[block_index]][byte_index] ^= cipher_byte;
-        }
-    }
-
-    // Print content of the file after encryption
-    printf("Content after encryption:\n");
-    for (int block_index = 0; block_index < count_block; block_index++)
-    {
-        for (int byte_index = 0; byte_index < BLOCK_SIZE; byte_index++)
-        {
-            printf("%c", data[inode_ptr->blocks[block_index]][byte_index]);
-        }
-    }
-    printf("\n");
-
-    printf("File %s encrypted successfully\n", filename);
-}
-
-/*decrypt function takes a filename and an unsigned char called cipher as input and decrypts the 
-  contents of the file by performing a bitwise XOR operation between each byte of the file and the cipher. 
-  XOR decrypt the file using the given cipher. The cipher is limited to a 1-byte value
-  decrypt command allows the user to decrypt a file in the file system using the provided cipher. 
-  The cipher is required to be 256 bits.
-*/
-void decrypt(char *filename, unsigned char cipher)
-{
-    //checks if the global image_open flag is 0, indicating that the disk image is not currently open. 
-    //if so, it prints an error message and returns without performing any decryption.
-    if (image_open == 0)
-    {
-        printf("ERROR: Disk image is not open\n");
-        return;
-    }
-
-    //searches for the filename in the directory array by iterating over all the entries in the array. 
-    //if the filename is found and its corresponding directory entry is marked as in_use, it sets the found flag to 1 and exits the loop. 
-    //if the filename is not found, it prints an error message and returns without performing any decryption.
-    int found = 0;
-    int i;
-    for (i = 0; i < NUM_FILES; i++)
-    {
-        if (directory[i].in_use && strcmp(directory[i].filename, filename) == 0)
-        {
-            found = 1;
-            break;
-        }
-    }
-
-    if (!found)
-    {
-        printf("ERROR: File not found\n");
-        return;
-    }
-
-    //gets a pointer to the inode corresponding to the filename found in the previous step 
-    //and performs the decryption on each block of the file. The for loop iterates 
-    //over all the data blocks of the file, which are stored in the inode_ptr->blocks array. 
-    //it performs the XOR operation on each byte of each block with the cipher value.
-    struct inode *inode_ptr = &inodes[directory[i].inode];
-
-    for (int block_index = 0; block_index < BLOCKS_PER_FILE; block_index++)
-    {
-        int block = inode_ptr->blocks[block_index];
-        if (block == -1) // No more data blocks to decrypt
-        {
-            break;
-        }
-
-        for (int byte_index = 0; byte_index < BLOCK_SIZE; byte_index++)
-        {
-            data[block][byte_index] ^= cipher;
-        }
-    }
-    
-    printf("File %s decrypted successfully\n", filename);
 }
 
 /* The list function simply lists the files in the directory of the current open disk image.
@@ -1222,33 +1061,6 @@ int main()
         }
         attrib(token[2], token[1]);
 	}
-
-    else if (strcmp("encrypt", token[0]) == 0)
-    {
-        if (token[1] == NULL || token[2] == NULL)
-        {
-            printf("ERROR: Insufficient arguments. Usage: encrypt <filename> <cipher>\n");
-            continue;
-        }
-        encrypt(token[1], token[2]);
-    }
-
-    else if (strcmp("decrypt", token[0]) == 0)
-    {
-        if (token[1] == NULL)
-        {
-            printf("ERROR: No filename specified.\n");
-            continue;
-        }
-
-        if (token[2] == NULL)
-        {
-            printf("ERROR: No cipher specified.\n");
-            continue;
-        }
-        unsigned char cipher = (unsigned char)strtoul(token[2], NULL, 0);
-        decrypt(token[1], cipher);
-    }
 
 	else if( strcmp("read", token[0]) == 0 )
 	{
